@@ -1,0 +1,6 @@
+## Display-stack dependencies owned by the board-support component
+dependencies:
+  idf: ">=5.3"
+  lvgl/lvgl: "^9.3.0"
+  espressif/esp_lvgl_port: "^2.4"
+  espressif/esp_lcd_touch_gt911: "^1.1"

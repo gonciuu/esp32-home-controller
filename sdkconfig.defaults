@@ -1,0 +1,15 @@
+# Flash: board has 16MB
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# Octal PSRAM (8MB) — needed for the 800x480 RGB framebuffer
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# Run CPU at 240MHz for smoother RGB refresh
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# UI type scale: 14 (default) / 18 body / 22 heading / 28 page title
+CONFIG_LV_FONT_MONTSERRAT_18=y
+CONFIG_LV_FONT_MONTSERRAT_22=y
+CONFIG_LV_FONT_MONTSERRAT_28=y

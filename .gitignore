@@ -71,3 +71,10 @@ Desktop.ini
 *.user
 *.suo
 *.sln.docstates
+
+dependencies.lock
+.clangd
+devcontainer.json
+c_cpp_properties.json
+launch.json
+settings.json
