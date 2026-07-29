@@ -6,7 +6,6 @@ static lv_style_t s_screen;
 static lv_style_t s_surface;
 static lv_style_t s_card;
 static lv_style_t s_card_pressed;
-static lv_style_t s_card_selected;
 static lv_style_t s_transparent;
 
 static lv_style_transition_dsc_t s_trans_press;
@@ -70,12 +69,6 @@ void ui_theme_init(void)
     lv_style_set_bg_color(&s_card_pressed, ui_color(UI_COLOR_SURFACE_HI));
     lv_style_set_border_color(&s_card_pressed, ui_color(UI_COLOR_TEXT_MUTED));
 
-    lv_style_init(&s_card_selected);
-    lv_style_set_bg_color(&s_card_selected, ui_color(UI_COLOR_ACCENT_SOFT));
-    lv_style_set_border_width(&s_card_selected, 4);
-    lv_style_set_border_color(&s_card_selected, ui_color(UI_COLOR_ACCENT));
-    lv_style_set_border_side(&s_card_selected, LV_BORDER_SIDE_LEFT);
-
     lv_style_init(&s_transparent);
     lv_style_set_bg_opa(&s_transparent, LV_OPA_TRANSP);
     lv_style_set_border_width(&s_transparent, 0);
@@ -89,5 +82,4 @@ lv_style_t *ui_style_screen(void)        { return &s_screen;        }
 lv_style_t *ui_style_surface(void)       { return &s_surface;       }
 lv_style_t *ui_style_card(void)          { return &s_card;          }
 lv_style_t *ui_style_card_pressed(void)  { return &s_card_pressed;  }
-lv_style_t *ui_style_card_selected(void) { return &s_card_selected; }
 lv_style_t *ui_style_transparent(void)   { return &s_transparent;   }

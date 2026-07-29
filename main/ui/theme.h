@@ -15,6 +15,11 @@ extern "C" {
 #define UI_COLOR_ACCENT       0x4C8DFF
 #define UI_COLOR_ACCENT_SOFT  0x1B2942
 
+#define UI_COLOR_SUN          0xFFB020
+#define UI_COLOR_CLOUD        0x9AA6BA
+#define UI_COLOR_RAIN         0x35C6E8
+#define UI_COLOR_SNOW         0xE8F0FA
+
 #define UI_SPACE_XS   4
 #define UI_SPACE_SM   8
 #define UI_SPACE_MD  12
@@ -25,10 +30,16 @@ extern "C" {
 #define UI_RADIUS_MD 16
 #define UI_RADIUS_LG 20
 
-#define UI_FONT_TITLE   (&lv_font_montserrat_28)
-#define UI_FONT_HEADING (&lv_font_montserrat_22)
-#define UI_FONT_BODY    (&lv_font_montserrat_18)
-#define UI_FONT_CAPTION (&lv_font_montserrat_14)
+LV_FONT_DECLARE(ui_font_14);
+LV_FONT_DECLARE(ui_font_18);
+LV_FONT_DECLARE(ui_font_22);
+LV_FONT_DECLARE(ui_font_28);
+
+#define UI_FONT_CLOCK   (&lv_font_montserrat_48)
+#define UI_FONT_TITLE   (&ui_font_28)
+#define UI_FONT_HEADING (&ui_font_22)
+#define UI_FONT_BODY    (&ui_font_18)
+#define UI_FONT_CAPTION (&ui_font_14)
 
 #define UI_ANIM_TIME_MS 80
 
@@ -43,7 +54,6 @@ lv_style_t *ui_style_screen(void);
 lv_style_t *ui_style_surface(void);
 lv_style_t *ui_style_card(void);
 lv_style_t *ui_style_card_pressed(void);
-lv_style_t *ui_style_card_selected(void);
 lv_style_t *ui_style_transparent(void);
 
 #ifdef __cplusplus

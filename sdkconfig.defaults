@@ -1,6 +1,10 @@
 # Flash: board has 16MB
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
+# 4MB app partition — WiFi + mbedTLS + cert bundle overflow the default 1MB
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
 # Octal PSRAM (8MB) — needed for the 800x480 RGB framebuffer
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
@@ -9,7 +13,8 @@ CONFIG_SPIRAM_SPEED_80M=y
 # Run CPU at 240MHz for smoother RGB refresh
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
-# UI type scale: 14 (default) / 18 body / 22 heading / 28 page title
+# UI type scale: 14 (default) / 18 body / 22 heading / 28 page title / 48 clock
 CONFIG_LV_FONT_MONTSERRAT_18=y
 CONFIG_LV_FONT_MONTSERRAT_22=y
 CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_MONTSERRAT_48=y

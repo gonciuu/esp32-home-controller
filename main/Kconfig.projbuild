@@ -1,0 +1,29 @@
+menu "Home Controller"
+
+    config HOME_WIFI_SSID
+        string "WiFi SSID"
+        default "my-network"
+        help
+            Name of the WiFi network the panel joins.
+
+    config HOME_WIFI_PASSWORD
+        string "WiFi password"
+        default ""
+        help
+            WPA2 password. Leave empty for an open network.
+
+    config HOME_WEATHER_LAT
+        string "Weather latitude"
+        default "52.2297"
+
+    config HOME_WEATHER_LON
+        string "Weather longitude"
+        default "21.0122"
+
+    config HOME_WEATHER_CITY
+        string "Weather location label"
+        default "Warsaw"
+        help
+            Shown under the temperature. Purely cosmetic.
+
+endmenu
