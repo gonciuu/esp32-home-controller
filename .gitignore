@@ -1,0 +1,73 @@
+# NOTE: git has no inline comments — a trailing "# ..." becomes part of the
+# pattern. Every comment here is on its own line.
+
+# --- ESP-IDF build output ---------------------------------------------------
+build/
+sdkconfig
+sdkconfig.old
+# Generated inside build/, listed again in case of stray copies
+flasher_args.json
+
+# Committed on purpose (do not ignore):
+#   sdkconfig.defaults  — board/project config, the source of truth
+#   dependencies.lock   — pins managed component versions
+
+# --- Managed components -----------------------------------------------------
+# Restored by the component manager from idf_component.yml + dependencies.lock
+managed_components/
+components/.idf/
+.espressif/
+
+# --- Compiled artifacts -----------------------------------------------------
+*.o
+*.a
+*.out
+*.exe
+*.bin
+*.elf
+*.map
+
+# --- CMake ------------------------------------------------------------------
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+
+# --- Language servers -------------------------------------------------------
+# .clangd (the file) is committed; .clangd/ (the cache dir) is not
+.clangd/
+.cache/
+.ccls-cache/
+compile_commands.json
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+venv/
+.venv/
+env/
+
+# --- Editors / OS -----------------------------------------------------------
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+.DS_Store
+.AppleDouble
+.LSOverride
+.directory
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- User-specific project files --------------------------------------------
+*.user
+*.suo
+*.sln.docstates
