@@ -1,4 +1,5 @@
 #include "dashboard.h"
+#include "markets_page.h"
 #include "page.h"
 #include "theme.h"
 #include "tile_card.h"
@@ -10,19 +11,24 @@
  * of the 368 down. Nothing scrolls. */
 #define CONTENT_HEIGHT (440 - UI_TOP_BAR_HEIGHT - UI_SPACE_LG)
 
+static void weather_event_cb(lv_event_t *e);
+static void markets_event_cb(lv_event_t *e);
+
 typedef struct {
-    const char *icon;
-    const char *label;
-    const char *info;
-    uint32_t    accent;
+    const char   *icon;
+    const char   *label;
+    const char   *info;
+    uint32_t      accent;
+    lv_event_cb_t on_click;   
 } ui_section_t;
 
 static const ui_section_t s_sections[] = {
-    { LV_SYMBOL_HOME,     "Home",     "All quiet",   0x4C8DFF },
-    { LV_SYMBOL_CHARGE,   "Lights",   "3 on",        0xFFB020 },
-    { LV_SYMBOL_TINT,     "Climate",  "21.5\xC2\xB0" "C", 0x35C6E8 },
-    { LV_SYMBOL_AUDIO,    "Media",    "Idle",        0xA46BFF },
-    { LV_SYMBOL_SETTINGS, "Settings", "Up to date",  0x8A93A3 },
+    { LV_SYMBOL_HOME,     "Home",     "All quiet",   0x4C8DFF, NULL },
+    { LV_SYMBOL_CHARGE,   "Lights",   "3 on",        0xFFB020, NULL },
+    { LV_SYMBOL_TINT,     "Climate",  "--",          0x35C6E8, weather_event_cb },
+    { LV_SYMBOL_AUDIO,    "Media",    "Idle",        0xA46BFF, NULL },
+    { LV_SYMBOL_SETTINGS, "Settings", "Up to date",  0x8A93A3, NULL },
+    { NULL,               "Crypto",   "--",          UI_COLOR_BTC, markets_event_cb },
 };
 
 #define UI_SECTION_COUNT (sizeof(s_sections) / sizeof(s_sections[0]))
@@ -30,14 +36,18 @@ static const ui_section_t s_sections[] = {
 static lv_obj_t *s_top_bar;
 static lv_obj_t *s_content;
 static lv_obj_t *s_weather;
+static lv_obj_t *s_markets;
 static lv_obj_t *s_grid;
 static lv_obj_t *s_pages[UI_SECTION_COUNT];
 
 static void show_grid(void)
 {
     for (uint32_t i = 0; i < UI_SECTION_COUNT; i++) {
-        lv_obj_add_flag(s_pages[i], LV_OBJ_FLAG_HIDDEN);
+        if (s_pages[i]) {
+            lv_obj_add_flag(s_pages[i], LV_OBJ_FLAG_HIDDEN);
+        }
     }
+    lv_obj_add_flag(s_markets, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(s_grid, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -54,20 +64,40 @@ static void back_event_cb(lv_event_t *e)
     show_grid();
 }
 
+static void show_overlay(lv_obj_t *page)
+{
+    lv_obj_add_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_content, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(page, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void hide_overlay(lv_obj_t *page)
+{
+    lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_content, LV_OBJ_FLAG_HIDDEN);
+    show_grid();
+}
+
 static void weather_event_cb(lv_event_t *e)
 {
     ui_weather_page_select_today();
-    lv_obj_add_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_content, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
+    show_overlay(s_weather);
 }
 
 static void weather_back_cb(lv_event_t *e)
 {
-    lv_obj_add_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(s_content, LV_OBJ_FLAG_HIDDEN);
-    show_grid();
+    hide_overlay(s_weather);
+}
+
+static void markets_event_cb(lv_event_t *e)
+{
+    show_overlay(s_markets);
+}
+
+static void markets_back_cb(lv_event_t *e)
+{
+    hide_overlay(s_markets);
 }
 
 void ui_dashboard_create(void)
@@ -97,14 +127,28 @@ void ui_dashboard_create(void)
     lv_obj_remove_flag(s_grid, LV_OBJ_FLAG_SCROLLABLE);
 
     for (uint32_t i = 0; i < UI_SECTION_COUNT; i++) {
-        ui_tile_card_create(s_grid, s_sections[i].icon, s_sections[i].label,
-                            s_sections[i].info, s_sections[i].accent, tile_event_cb,
-                            (void *)(uintptr_t)i);
-        s_pages[i] = ui_page_create(s_content, s_sections[i].label, back_event_cb, NULL);
+        const bool own_page = s_sections[i].on_click != NULL;
+
+        lv_obj_t *card = ui_tile_card_create(s_grid, s_sections[i].icon, s_sections[i].label,
+                                             s_sections[i].info, s_sections[i].accent,
+                                             own_page ? s_sections[i].on_click : tile_event_cb,
+                                             (void *)(uintptr_t)i);
+        s_pages[i] = own_page
+                         ? NULL
+                         : ui_page_create(s_content, s_sections[i].label, back_event_cb, NULL);
+
+        if (s_sections[i].on_click == markets_event_cb) {
+            ui_markets_bind_tile(card);
+        }
+        else if (s_sections[i].on_click == weather_event_cb) {
+            ui_weather_page_bind_tile(card);
+        }
     }
 
     s_weather = ui_weather_page_create(screen, weather_back_cb, NULL);
     lv_obj_add_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
+
+    s_markets = ui_markets_page_create(screen, markets_back_cb, NULL);
 
     show_grid();
 }

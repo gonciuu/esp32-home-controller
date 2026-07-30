@@ -1,7 +1,9 @@
 #include "weather_page.h"
 #include "hourly_strip.h"
+#include "label.h"
 #include "page.h"
 #include "theme.h"
+#include "tile_card.h"
 #include "weather.h"
 #include "weather_icon.h"
 
@@ -15,6 +17,7 @@
 #define DAYS_HEIGHT    104
 #define TICK_PERIOD_MS 5000
 #define TEXT_CAP       16
+#define TILE_TEXT_CAP  32
 #define HERO_ICON_SIZE 72
 #define DAY_ICON_SIZE  30
 #define DIVIDER_HEIGHT 88
@@ -53,21 +56,15 @@ static char s_day_temp_cache[WEATHER_DAY_COUNT][TEXT_CAP];
 static char s_day_wind_cache[WEATHER_DAY_COUNT][TEXT_CAP];
 static char s_hero_temp_cache[TEXT_CAP];
 static char s_hero_cond_cache[TEXT_CAP];
+static char s_tile_cache[TILE_TEXT_CAP];
+
+static lv_obj_t *s_tile;
 
 static int s_selected;
 
-static void set_text_if_changed(lv_obj_t *label, char *cache, const char *text)
-{
-    if (strcmp(cache, text) == 0) {
-        return;
-    }
-    strlcpy(cache, text, TEXT_CAP);
-    lv_label_set_text(label, text);
-}
-
 static void set_stat(int index, const char *text)
 {
-    set_text_if_changed(s_stat[index], s_stat_cache[index], text);
+    ui_label_set(s_stat[index], s_stat_cache[index], TEXT_CAP, text);
 }
 
 static void day_name(int offset, char *out, size_t cap)
@@ -130,14 +127,14 @@ static void render_days(const weather_t *w)
         set_card_selected(i, i == s_selected);
 
         day_name(i, buf, sizeof(buf));
-        set_text_if_changed(s_day_name[i], s_day_name_cache[i], buf);
+        ui_label_set(s_day_name[i], s_day_name_cache[i], TEXT_CAP, buf);
 
         snprintf(buf, sizeof(buf), "%.0f\xC2\xB0/%.0f\xC2\xB0", w->daily[i].max_c,
                  w->daily[i].min_c);
-        set_text_if_changed(s_day_temp[i], s_day_temp_cache[i], buf);
+        ui_label_set(s_day_temp[i], s_day_temp_cache[i], TEXT_CAP, buf);
 
         snprintf(buf, sizeof(buf), "%.0f km/h", w->daily[i].wind_kmh);
-        set_text_if_changed(s_day_wind[i], s_day_wind_cache[i], buf);
+        ui_label_set(s_day_wind[i], s_day_wind_cache[i], TEXT_CAP, buf);
 
         ui_weather_icon_set_code(s_day_icon[i], w->daily[i].code);
     }
@@ -152,8 +149,8 @@ static void render_hero(const weather_t *w)
 
     if (today) {
         snprintf(buf, sizeof(buf), "%.0f", w->temp_c);
-        set_text_if_changed(s_hero_temp, s_hero_temp_cache, buf);
-        set_text_if_changed(s_hero_cond, s_hero_cond_cache, weather_code_text(w->code));
+        ui_label_set(s_hero_temp, s_hero_temp_cache, TEXT_CAP, buf);
+        ui_label_set(s_hero_cond, s_hero_cond_cache, TEXT_CAP, weather_code_text(w->code));
         ui_weather_icon_set_code(s_hero_icon, w->code);
 
         snprintf(buf, sizeof(buf), "%d%%", w->humidity);
@@ -164,8 +161,8 @@ static void render_hero(const weather_t *w)
     }
     else if (day) {
         snprintf(buf, sizeof(buf), "%.0f", day->max_c);
-        set_text_if_changed(s_hero_temp, s_hero_temp_cache, buf);
-        set_text_if_changed(s_hero_cond, s_hero_cond_cache, weather_code_text(day->code));
+        ui_label_set(s_hero_temp, s_hero_temp_cache, TEXT_CAP, buf);
+        ui_label_set(s_hero_cond, s_hero_cond_cache, TEXT_CAP, weather_code_text(day->code));
         ui_weather_icon_set_code(s_hero_icon, day->code);
 
         set_daylight(day);
@@ -174,13 +171,13 @@ static void render_hero(const weather_t *w)
         set_stat(STAT_WIND, buf);
     }
 
-    set_text_if_changed(s_stat_key[STAT_EXTRA], s_stat_key_cache[STAT_EXTRA],
-                        today ? "Humidity" : "Daylight");
+    ui_label_set(s_stat_key[STAT_EXTRA], s_stat_key_cache[STAT_EXTRA], TEXT_CAP,
+                 today ? "Humidity" : "Daylight");
 
     if (!day) {
         if (!today) {
-            set_text_if_changed(s_hero_temp, s_hero_temp_cache, "--");
-            set_text_if_changed(s_hero_cond, s_hero_cond_cache, "");
+            ui_label_set(s_hero_temp, s_hero_temp_cache, TEXT_CAP, "--");
+            ui_label_set(s_hero_cond, s_hero_cond_cache, TEXT_CAP, "");
         }
         set_stat(STAT_HIGH, "--");
         set_stat(STAT_LOW, "--");
@@ -197,20 +194,40 @@ static void render_hero(const weather_t *w)
     set_stat(STAT_SUNSET, day->sunset[0] ? day->sunset : "--:--");
 }
 
+static void render_tile(const weather_t *w)
+{
+    if (!s_tile) {
+        return;
+    }
+    if (!w) {
+        ui_label_set(s_tile, s_tile_cache, TILE_TEXT_CAP, "--");
+        return;
+    }
+
+    char cond[16];
+    strlcpy(cond, weather_code_text(w->code), sizeof(cond));
+
+    char buf[TILE_TEXT_CAP];
+    snprintf(buf, sizeof(buf), "%.0f\xC2\xB0" "C  %s", w->temp_c, cond);
+    ui_label_set(s_tile, s_tile_cache, TILE_TEXT_CAP, buf);
+}
+
 static void render(void)
 {
     weather_t w;
 
     if (!weather_get(&w)) {
-        set_text_if_changed(s_hero_temp, s_hero_temp_cache, "--");
-        set_text_if_changed(s_hero_cond, s_hero_cond_cache, "No weather data");
+        ui_label_set(s_hero_temp, s_hero_temp_cache, TEXT_CAP, "--");
+        ui_label_set(s_hero_cond, s_hero_cond_cache, TEXT_CAP, "No weather data");
         for (int i = 0; i < STAT_COUNT; i++) {
             set_stat(i, "--");
         }
+        render_tile(NULL);
         lv_obj_add_flag(s_days, LV_OBJ_FLAG_HIDDEN);
         return;
     }
 
+    render_tile(&w);
     render_hero(&w);
 
     if (!w.daily_valid) {
@@ -238,6 +255,11 @@ static void day_event_cb(lv_event_t *e)
     render();
 }
 
+void ui_weather_page_bind_tile(lv_obj_t *card)
+{
+    s_tile = ui_tile_card_info_label(card);
+}
+
 void ui_weather_page_select_today(void)
 {
     if (s_selected == 0) {
@@ -246,16 +268,6 @@ void ui_weather_page_select_today(void)
     s_selected = 0;
     ui_hourly_strip_set_day(0);
     render();
-}
-
-static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font, uint32_t color,
-                            const char *text)
-{
-    lv_obj_t *label = lv_label_create(parent);
-    lv_label_set_text(label, text);
-    lv_obj_set_style_text_font(label, font, 0);
-    lv_obj_set_style_text_color(label, ui_color(color), 0);
-    return label;
 }
 
 static lv_obj_t *make_box(lv_obj_t *parent, lv_flex_flow_t flow, int32_t gap)
@@ -287,12 +299,12 @@ static void create_stat(lv_obj_t *column, int index)
     lv_obj_t *row = make_box(column, LV_FLEX_FLOW_ROW, UI_SPACE_SM);
     lv_obj_set_width(row, LV_SIZE_CONTENT);
 
-    s_stat_key[index] = make_label(row, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED,
+    s_stat_key[index] = ui_label(row, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED,
                                    s_stat_keys[index]);
     lv_obj_set_width(s_stat_key[index], STAT_KEY_WIDTH);
     strlcpy(s_stat_key_cache[index], s_stat_keys[index], TEXT_CAP);
 
-    s_stat[index] = make_label(row, UI_FONT_BODY, UI_COLOR_TEXT, "--");
+    s_stat[index] = ui_label(row, UI_FONT_BODY, UI_COLOR_TEXT, "--");
 }
 
 static void create_hero(lv_obj_t *page)
@@ -313,10 +325,10 @@ static void create_hero(lv_obj_t *page)
     lv_obj_set_width(temp_row, LV_SIZE_CONTENT);
     lv_obj_set_flex_align(temp_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
 
-    s_hero_temp = make_label(temp_row, UI_FONT_CLOCK, UI_COLOR_TEXT, "--");
-    make_label(temp_row, UI_FONT_TITLE, UI_COLOR_TEXT_MUTED, "\xC2\xB0" "C");
+    s_hero_temp = ui_label(temp_row, UI_FONT_CLOCK, UI_COLOR_TEXT, "--");
+    ui_label(temp_row, UI_FONT_TITLE, UI_COLOR_TEXT_MUTED, "\xC2\xB0" "C");
 
-    s_hero_cond = make_label(text, UI_FONT_BODY, UI_COLOR_TEXT_MUTED, "");
+    s_hero_cond = ui_label(text, UI_FONT_BODY, UI_COLOR_TEXT_MUTED, "");
 
     lv_obj_t *stats = make_box(hero, LV_FLEX_FLOW_ROW, UI_SPACE_XL);
     lv_obj_set_flex_grow(stats, 1);
@@ -354,10 +366,10 @@ static void create_day(lv_obj_t *row, int index)
     s_day_card[index] = card;
     set_card_selected(index, index == 0);
 
-    s_day_name[index] = make_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
+    s_day_name[index] = ui_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
     s_day_icon[index] = ui_weather_icon_create(card, DAY_ICON_SIZE);
-    s_day_temp[index] = make_label(card, UI_FONT_BODY, UI_COLOR_TEXT, "");
-    s_day_wind[index] = make_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
+    s_day_temp[index] = ui_label(card, UI_FONT_BODY, UI_COLOR_TEXT, "");
+    s_day_wind[index] = ui_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
 
     lv_obj_remove_flag(s_day_name[index], LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(s_day_temp[index], LV_OBJ_FLAG_CLICKABLE);

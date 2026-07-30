@@ -15,6 +15,11 @@ extern "C" {
 #define UI_COLOR_ACCENT       0x4C8DFF
 #define UI_COLOR_ACCENT_SOFT  0x1B2942
 
+#define UI_COLOR_UP           0x3DD68C
+#define UI_COLOR_DOWN         0xFF5C5C
+
+#define UI_COLOR_BTC          0xF7931A
+
 #define UI_COLOR_SUN          0xFFB020
 #define UI_COLOR_CLOUD        0x9AA6BA
 #define UI_COLOR_RAIN         0x35C6E8

@@ -1,4 +1,5 @@
 #include "tile_card.h"
+#include "label.h"
 #include "theme.h"
 
 #define ICON_TILE_SIZE 56
@@ -30,23 +31,16 @@ lv_obj_t *ui_tile_card_create(lv_obj_t *parent, const char *icon, const char *la
     lv_obj_remove_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(tile, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t *icon_label = lv_label_create(tile);
-    lv_label_set_text(icon_label, icon);
-    lv_obj_set_style_text_font(icon_label, UI_FONT_HEADING, 0);
-    lv_obj_set_style_text_color(icon_label, ui_color(accent), 0);
-    lv_obj_center(icon_label);
-    lv_obj_remove_flag(icon_label, LV_OBJ_FLAG_CLICKABLE);
+    if (icon) {
+        lv_obj_t *icon_label = ui_label(tile, UI_FONT_HEADING, accent, icon);
+        lv_obj_center(icon_label);
+        lv_obj_remove_flag(icon_label, LV_OBJ_FLAG_CLICKABLE);
+    }
 
-    lv_obj_t *name = lv_label_create(card);
-    lv_label_set_text(name, label);
-    lv_obj_set_style_text_font(name, UI_FONT_BODY, 0);
-    lv_obj_set_style_text_color(name, ui_color(UI_COLOR_TEXT), 0);
+    lv_obj_t *name = ui_label(card, UI_FONT_BODY, UI_COLOR_TEXT, label);
     lv_obj_remove_flag(name, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t *subtitle = lv_label_create(card);
-    lv_label_set_text(subtitle, info);
-    lv_obj_set_style_text_font(subtitle, UI_FONT_CAPTION, 0);
-    lv_obj_set_style_text_color(subtitle, ui_color(UI_COLOR_TEXT_MUTED), 0);
+    lv_obj_t *subtitle = ui_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, info);
     lv_obj_remove_flag(subtitle, LV_OBJ_FLAG_CLICKABLE);
 
     if (on_click) {
@@ -54,4 +48,14 @@ lv_obj_t *ui_tile_card_create(lv_obj_t *parent, const char *icon, const char *la
     }
 
     return card;
+}
+
+lv_obj_t *ui_tile_card_icon_tile(lv_obj_t *card)
+{
+    return lv_obj_get_child(card, 0);
+}
+
+lv_obj_t *ui_tile_card_info_label(lv_obj_t *card)
+{
+    return lv_obj_get_child(card, 2);
 }

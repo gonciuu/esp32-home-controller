@@ -1,10 +1,10 @@
 #include "hourly_strip.h"
+#include "label.h"
 #include "theme.h"
 #include "weather.h"
 #include "weather_icon.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #define TICK_PERIOD_MS 5000
 #define VISIBLE_HOURS  8
@@ -31,15 +31,6 @@ static int            s_count;
 static int            s_day;
 static int            s_page;
 static int            s_base_hour = -1;
-
-static void set_text_if_changed(lv_obj_t *label, char *cache, const char *text)
-{
-    if (strcmp(cache, text) == 0) {
-        return;
-    }
-    strlcpy(cache, text, TEXT_CAP);
-    lv_label_set_text(label, text);
-}
 
 static int page_count(void)
 {
@@ -76,20 +67,20 @@ static void render(void)
         lv_obj_remove_flag(s_cell[i], LV_OBJ_FLAG_HIDDEN);
 
         if (s_count == 0) {
-            set_text_if_changed(s_hour[i], s_hour_cache[i], "--:--");
-            set_text_if_changed(s_temp[i], s_temp_cache[i], "--\xC2\xB0");
-            set_text_if_changed(s_wind[i], s_wind_cache[i], "");
+            ui_label_set(s_hour[i], s_hour_cache[i], TEXT_CAP, "--:--");
+            ui_label_set(s_temp[i], s_temp_cache[i], TEXT_CAP, "--\xC2\xB0");
+            ui_label_set(s_wind[i], s_wind_cache[i], TEXT_CAP, "");
             continue;
         }
 
         snprintf(buf, sizeof(buf), "%02d:00", s_hours[index].hour);
-        set_text_if_changed(s_hour[i], s_hour_cache[i], buf);
+        ui_label_set(s_hour[i], s_hour_cache[i], TEXT_CAP, buf);
 
         snprintf(buf, sizeof(buf), "%.0f\xC2\xB0", s_hours[index].temp_c);
-        set_text_if_changed(s_temp[i], s_temp_cache[i], buf);
+        ui_label_set(s_temp[i], s_temp_cache[i], TEXT_CAP, buf);
 
         snprintf(buf, sizeof(buf), "%.0f km/h", s_hours[index].wind_kmh);
-        set_text_if_changed(s_wind[i], s_wind_cache[i], buf);
+        ui_label_set(s_wind[i], s_wind_cache[i], TEXT_CAP, buf);
 
         ui_weather_icon_set_code(s_icon[i], s_hours[index].code);
     }
@@ -151,15 +142,6 @@ void ui_hourly_strip_set_day(int day)
     refresh();
 }
 
-static lv_obj_t *make_label(lv_obj_t *parent, uint32_t color, const char *text)
-{
-    lv_obj_t *label = lv_label_create(parent);
-    lv_label_set_text(label, text);
-    lv_obj_set_style_text_font(label, UI_FONT_CAPTION, 0);
-    lv_obj_set_style_text_color(label, ui_color(color), 0);
-    return label;
-}
-
 static lv_obj_t *create_arrow(lv_obj_t *parent, const char *glyph, int delta)
 {
     lv_obj_t *arrow = lv_obj_create(parent);
@@ -195,10 +177,10 @@ static void create_cell(lv_obj_t *row, int index)
     lv_obj_remove_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
 
     s_cell[index] = cell;
-    s_hour[index] = make_label(cell, UI_COLOR_TEXT_MUTED, "--:--");
+    s_hour[index] = ui_label(cell, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "--:--");
     s_icon[index] = ui_weather_icon_create(cell, CELL_ICON_SIZE);
-    s_temp[index] = make_label(cell, UI_COLOR_TEXT, "--\xC2\xB0");
-    s_wind[index] = make_label(cell, UI_COLOR_TEXT_MUTED, "");
+    s_temp[index] = ui_label(cell, UI_FONT_CAPTION, UI_COLOR_TEXT, "--\xC2\xB0");
+    s_wind[index] = ui_label(cell, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
 }
 
 lv_obj_t *ui_hourly_strip_create(lv_obj_t *parent)

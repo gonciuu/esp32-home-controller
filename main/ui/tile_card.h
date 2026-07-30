@@ -13,6 +13,9 @@ lv_obj_t *ui_tile_card_create(lv_obj_t *parent, const char *icon, const char *la
                               const char *info, uint32_t accent, lv_event_cb_t on_click,
                               void *user_data);
 
+lv_obj_t *ui_tile_card_icon_tile(lv_obj_t *card);
+lv_obj_t *ui_tile_card_info_label(lv_obj_t *card);
+
 #ifdef __cplusplus
 }
 #endif

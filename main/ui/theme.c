@@ -12,9 +12,10 @@ static lv_style_transition_dsc_t s_trans_press;
 
 /* Colour-only, and it must stay that way. Anything that transforms an object
  * (scale, rotation, skew) makes LVGL render it into an intermediate layer
- * buffer — see calculate_layer_type() in lv_obj_style.c. A 384x68 card at
- * RGB565 needs ~52KB, which does not fit the 64KB LVGL heap, and the draw
- * dispatcher then spins retrying the allocation until the watchdog resets. */
+ * buffer — see calculate_layer_type() in lv_obj_style.c. A 245x178 tile at
+ * RGB565 needs ~85KB, which will not come out of the 128KB LVGL heap with the
+ * pages already live, and the draw dispatcher then spins retrying the
+ * allocation until the watchdog resets. */
 static const lv_style_prop_t s_trans_props[] = {
     LV_STYLE_BG_COLOR,
     LV_STYLE_BORDER_COLOR,

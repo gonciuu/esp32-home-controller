@@ -1,4 +1,5 @@
 #include "weather.h"
+#include "net_lock.h"
 #include "wifi_sta.h"
 
 #include <stdlib.h>
@@ -257,8 +258,11 @@ static bool fetch_once(void)
         .timeout_ms = 10000,
     };
 
+    net_lock_take();
+
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (!client) {
+        net_lock_give();
         return false;
     }
 
@@ -300,6 +304,7 @@ static bool fetch_once(void)
     }
 
     esp_http_client_cleanup(client);
+    net_lock_give();
     return ok;
 }
 

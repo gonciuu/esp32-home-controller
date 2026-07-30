@@ -26,15 +26,20 @@ main/
   app_main.c          entry point: bring up display and net, build the UI
   net/
     wifi_sta.h/.c     station bring-up
+    net_lock.h/.c     one-at-a-time mutex around the HTTPS pollers
     time_sync.h/.c    SNTP + TZ
     weather.h/.c      Open-Meteo poller, snapshot behind a mutex
+    markets.h/.c      Binance poller (BTC/ETH/SOL), snapshot behind a mutex
   ui/
     theme.h/.c        design system — tokens + shared lv_style_t objects
+    label.h/.c        ui_label() builder + ui_label_set() cached write
     tile_card.h/.c    reusable touch tile (icon tile, label, subtitle)
     weather_icon.h/.c vector-ish condition icons built from nested lv_obj
     hourly_strip.h/.c paged 24-hour row for one day (singleton, one instance only)
     top_bar.h/.c      56 px bar: clock, date, city, temp button, wifi
     weather_page.h/.c fullscreen weather detail: hero, 5 selectable days, hourly
+    markets_page.h/.c fullscreen crypto detail: one price row per asset, plus the live
+                      subtitle it writes onto the dashboard's Crypto tile
     page.h/.c         section page stub (back row + optional heading)
     dashboard.h/.c    the screen shell: top bar over a 3x2 tile grid
 components/
@@ -56,7 +61,7 @@ New UI `.c` files must be added to `SRCS` in `main/CMakeLists.txt`.
 
 **RGB565.** `CONFIG_LV_COLOR_DEPTH_16` — subtle low-contrast colour steps band badly. Pick colours that survive 16-bit quantisation, and keep gradients to 2 stops (`CONFIG_LV_GRADIENT_MAX_STOPS=2`).
 
-**64 KB LVGL heap** (`CONFIG_LV_MEM_SIZE_KILOBYTES=64`). Keep the live object count bounded; watch the serial log for LVGL heap warnings.
+**128 KB LVGL heap** (`CONFIG_LV_MEM_SIZE_KILOBYTES`, a static array in internal SRAM). It was 64 KB and that was not enough: with the weather page, the crypto page and six tiles all live, `lv_malloc` started failing *inside draw task creation*, and the software dispatcher then spins retrying until the **task watchdog resets the board**. The giveaway is a watchdog backtrace parked in `lv_draw_dispatch` / `execute_drawing` with no progress, and it appears when the text gets longer (more letters, more draw tasks), so it can look like a data bug. Keep the live object count bounded anyway — every `lv_obj` is ~150-200 bytes and the pages are never destroyed, only hidden.
 
 **Touch only, no keyboard or mouse.** Hit targets should be ≥ 44 px; tile cards are 245x178, the top bar's temperature button and the hourly arrows are 44 px.
 
@@ -64,15 +69,19 @@ New UI `.c` files must be added to `SRCS` in `main/CMakeLists.txt`.
 
 **The hourly forecast is deliberately not in `weather_t`.** `weather_get()` copies the snapshot by value onto the caller's stack, and the LVGL task only has 7168 bytes (`ESP_LVGL_PORT_INIT_CONFIG`). The 5x24 hourly series is ~2 KB, so it lives in module state behind `weather_get_hours(day, out, cap)`, which copies at most one day. Do not move it back into the struct.
 
+**One HTTPS request at a time.** `weather.c` and `markets.c` each own a task and would otherwise handshake concurrently at boot and again whenever their periods collide. Two mbedTLS sessions plus two cert bundle verifications do not fit, and the failure is *not* a clean allocation error — it surfaces as `esp-x509-crt-bundle: PSA signature verification failed with error 0xffffff73` (that is -141, `PSA_ERROR_INSUFFICIENT_MEMORY`), which reads like a certificate problem. Every `fetch_once()` must sit inside `net_lock_take()` / `net_lock_give()`, and `net_lock_init()` must run in `app_main` before any poller starts. mbedTLS also allocates from PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`) so its 16 KB input buffer is not competing with the LVGL pool for internal SRAM.
+
+**Binance quotes its numbers as strings.** `"lastPrice":"118420.01000000"` — `weather.c`'s `find_number()` walks to the `:` and calls `strtof`, which stops dead on the `"`. `markets.c` has its own `find_quoted_number()` that steps over it. Both parsers depend on the same trap: every key string carries its own closing quote, or `"priceChange"` would match `"priceChangePercent"` (and `"weather_code"` would match `"weather_code_units"`).
+
 ## UI conventions
 
 Everything visual goes through `main/ui/theme.h`. Do not hard-code colours, spacing, radii, or fonts in feature code — use the `UI_COLOR_*`, `UI_SPACE_*`, `UI_RADIUS_*`, `UI_FONT_*` tokens and the shared styles (`ui_style_screen()`, `ui_style_surface()`, `ui_style_card()`, …). `ui_theme_init()` must run before any screen is built.
 
-Icons are FontAwesome glyphs baked into the Montserrat fonts — `LV_SYMBOL_*` string macros from `lv_symbol_def.h`, concatenated into label text. There are no image assets and no image decoders enabled.
+Icons are FontAwesome glyphs baked into the Montserrat fonts — `LV_SYMBOL_*` string macros from `lv_symbol_def.h`, concatenated into label text. There are no image assets and no image decoders enabled. Anything the glyph set does not cover gets assembled from nested `lv_obj` rectangles and circles instead: see `weather_icon.c` and the coin in `markets_page.c`. A tile card built with a NULL icon leaves its icon tile empty for exactly this.
 
-Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt. The weather page is a sibling of the top bar so it can cover it.
+Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. A section with a non-NULL `on_click` brings its own page and gets no stub — that is how Climate and Crypto escape the table, and it is why `show_grid()` has to skip the `NULL` entries in `s_pages[]`. Both also bind their tile's subtitle to live data via `ui_weather_page_bind_tile()` / `ui_markets_bind_tile()`; those run inside the card loop, *before* the pages exist, so neither may render from the bind call. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt. The weather and markets pages are siblings of the top bar so they can cover it; both need the full 440 px for their type sizes.
 
-Widgets that show live data own their own `lv_timer` and poll (`weather_get()`, `time_sync_is_valid()`, `wifi_sta_is_connected()`) rather than being pushed to. Every label they write goes through a local `set_text_if_changed()` against a `static char` cache — on a 30 FPS RGB panel an unnecessary `lv_label_set_text` costs a real invalidation.
+Widgets that show live data own their own `lv_timer` and poll (`weather_get()`, `time_sync_is_valid()`, `wifi_sta_is_connected()`) rather than being pushed to. Every label they write goes through `ui_label_set()` (`ui/label.h`) against a `static char` cache — on a 30 FPS RGB panel an unnecessary `lv_label_set_text` costs a real invalidation, and these widgets tick every 1-5 s against data that changes every 10-15 min. Build labels with `ui_label()` rather than a local `make_label` copy.
 
 `UI_FONT_CLOCK` is the *built-in* `lv_font_montserrat_48` and has no degree sign or Polish glyphs; only the custom `ui_font_14/18/22/28` carry them.
 
@@ -94,7 +103,3 @@ Follows `components/bsp_waveshare_lcd7/bsp.c`:
 - doc blocks on functions whose name and signature already explain them
 
 Do write a comment when the reader would otherwise get it wrong or undo it: hardware quirks and register meanings, timing and ordering constraints, non-obvious magic numbers, and traps where the obvious change breaks something (e.g. the transform/layer-allocation note in `theme.c`). Explain *why*, never *what*.
-
-## Stale files
-
-`README.md` and `pytest_hello_world.py` are leftover ESP-IDF "Hello World" example boilerplate. They do not describe this project and the pytest no longer matches the firmware. Ignore them; don't treat them as documentation.

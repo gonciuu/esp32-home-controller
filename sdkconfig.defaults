@@ -13,6 +13,17 @@ CONFIG_SPIRAM_SPEED_80M=y
 # Run CPU at 240MHz for smoother RGB refresh
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
+# mbedTLS allocates from PSRAM instead of internal SRAM. SSL_IN_CONTENT_LEN alone is 16K
+# per session, and with the LVGL pool taking 128K of internal RAM a handshake fails inside
+# the cert bundle check with PSA_ERROR_INSUFFICIENT_MEMORY (-141) rather than a clean OOM.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+# LVGL heap. 64K (the default) ran out once the weather page, the crypto page and six
+# tiles were all live at once: lv_malloc fails inside draw task creation and the software
+# dispatcher spins retrying until the task watchdog resets the board. Static array in
+# internal SRAM, so raising it costs internal RAM, not PSRAM.
+CONFIG_LV_MEM_SIZE_KILOBYTES=128
+
 # UI type scale: 14 (default) / 18 body / 22 heading / 28 page title / 48 clock
 CONFIG_LV_FONT_MONTSERRAT_18=y
 CONFIG_LV_FONT_MONTSERRAT_22=y
