@@ -1,7 +1,7 @@
 #include "tile_card.h"
 #include "theme.h"
 
-#define ICON_TILE_SIZE 40
+#define ICON_TILE_SIZE 56
 #define ICON_TILE_TINT 46
 
 lv_obj_t *ui_tile_card_create(lv_obj_t *parent, const char *icon, const char *label,
@@ -32,6 +32,7 @@ lv_obj_t *ui_tile_card_create(lv_obj_t *parent, const char *icon, const char *la
 
     lv_obj_t *icon_label = lv_label_create(tile);
     lv_label_set_text(icon_label, icon);
+    lv_obj_set_style_text_font(icon_label, UI_FONT_HEADING, 0);
     lv_obj_set_style_text_color(icon_label, ui_color(accent), 0);
     lv_obj_center(icon_label);
     lv_obj_remove_flag(icon_label, LV_OBJ_FLAG_CLICKABLE);

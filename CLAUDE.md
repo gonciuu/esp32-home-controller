@@ -23,12 +23,20 @@ Target is `esp32s3`; the serial port (`COM4`) is set in `.vscode/settings.json`.
 
 ```
 main/
-  app_main.c        entry point: bring up display, build the UI
+  app_main.c          entry point: bring up display and net, build the UI
+  net/
+    wifi_sta.h/.c     station bring-up
+    time_sync.h/.c    SNTP + TZ
+    weather.h/.c      Open-Meteo poller, snapshot behind a mutex
   ui/
-    theme.h/.c      design system — tokens + shared lv_style_t objects
-    menu_card.h/.c  reusable touch row (icon tile, label, chevron)
-    page.h/.c       section page stub
-    dashboard.h/.c  the screen shell: menu left, content right
+    theme.h/.c        design system — tokens + shared lv_style_t objects
+    tile_card.h/.c    reusable touch tile (icon tile, label, subtitle)
+    weather_icon.h/.c vector-ish condition icons built from nested lv_obj
+    hourly_strip.h/.c paged 24-hour row for one day (singleton, one instance only)
+    top_bar.h/.c      56 px bar: clock, date, city, temp button, wifi
+    weather_page.h/.c fullscreen weather detail: hero, 5 selectable days, hourly
+    page.h/.c         section page stub (back row + optional heading)
+    dashboard.h/.c    the screen shell: top bar over a 3x2 tile grid
 components/
   bsp_waveshare_lcd7/   board support: I2C, CH422G expander, RGB panel,
                         GT911 touch, LVGL port bring-up
@@ -50,9 +58,11 @@ New UI `.c` files must be added to `SRCS` in `main/CMakeLists.txt`.
 
 **64 KB LVGL heap** (`CONFIG_LV_MEM_SIZE_KILOBYTES=64`). Keep the live object count bounded; watch the serial log for LVGL heap warnings.
 
-**Touch only, no keyboard or mouse.** Hit targets should be ≥ 44 px; menu cards are 68 px.
+**Touch only, no keyboard or mouse.** Hit targets should be ≥ 44 px; tile cards are 245x178, the top bar's temperature button and the hourly arrows are 44 px.
 
 **~30 FPS** (`CONFIG_LV_DEF_REFR_PERIOD=33`) with a single PSRAM framebuffer and a 10-line bounce buffer. Avoid full-screen animation.
+
+**The hourly forecast is deliberately not in `weather_t`.** `weather_get()` copies the snapshot by value onto the caller's stack, and the LVGL task only has 7168 bytes (`ESP_LVGL_PORT_INIT_CONFIG`). The 5x24 hourly series is ~2 KB, so it lives in module state behind `weather_get_hours(day, out, cap)`, which copies at most one day. Do not move it back into the struct.
 
 ## UI conventions
 
@@ -60,7 +70,11 @@ Everything visual goes through `main/ui/theme.h`. Do not hard-code colours, spac
 
 Icons are FontAwesome glyphs baked into the Montserrat fonts — `LV_SYMBOL_*` string macros from `lv_symbol_def.h`, concatenated into label text. There are no image assets and no image decoders enabled.
 
-Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt.
+Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt. The weather page is a sibling of the top bar so it can cover it.
+
+Widgets that show live data own their own `lv_timer` and poll (`weather_get()`, `time_sync_is_valid()`, `wifi_sta_is_connected()`) rather than being pushed to. Every label they write goes through a local `set_text_if_changed()` against a `static char` cache — on a 30 FPS RGB panel an unnecessary `lv_label_set_text` costs a real invalidation.
+
+`UI_FONT_CLOCK` is the *built-in* `lv_font_montserrat_48` and has no degree sign or Polish glyphs; only the custom `ui_font_14/18/22/28` carry them.
 
 ## Code style
 

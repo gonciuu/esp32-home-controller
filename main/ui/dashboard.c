@@ -1,13 +1,14 @@
 #include "dashboard.h"
 #include "page.h"
-#include "status_panel.h"
 #include "theme.h"
 #include "tile_card.h"
+#include "top_bar.h"
+#include "weather_page.h"
 
-/* 20 + 360 + 20 + 380 = 780, plus the screen's 20 right pad. The grid runs edge
- * to edge in the right column: 2*183 + 12 = 378 of 380 across, 3*138 + 2*12 =
- * 438 of the 440 available down. Nothing scrolls. */
-#define CONTENT_WIDTH 380
+/* 800x480 less the screen's 20 pad is 760x440: top bar 56 + 16 gap + 368 content.
+ * The grid runs edge to edge, 3*245 + 2*12 = 759 of 760 across and 2*178 + 12 = 368
+ * of the 368 down. Nothing scrolls. */
+#define CONTENT_HEIGHT (440 - UI_TOP_BAR_HEIGHT - UI_SPACE_LG)
 
 typedef struct {
     const char *icon;
@@ -26,6 +27,9 @@ static const ui_section_t s_sections[] = {
 
 #define UI_SECTION_COUNT (sizeof(s_sections) / sizeof(s_sections[0]))
 
+static lv_obj_t *s_top_bar;
+static lv_obj_t *s_content;
+static lv_obj_t *s_weather;
 static lv_obj_t *s_grid;
 static lv_obj_t *s_pages[UI_SECTION_COUNT];
 
@@ -50,23 +54,40 @@ static void back_event_cb(lv_event_t *e)
     show_grid();
 }
 
+static void weather_event_cb(lv_event_t *e)
+{
+    ui_weather_page_select_today();
+    lv_obj_add_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_content, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void weather_back_cb(lv_event_t *e)
+{
+    lv_obj_add_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_top_bar, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_content, LV_OBJ_FLAG_HIDDEN);
+    show_grid();
+}
+
 void ui_dashboard_create(void)
 {
     lv_obj_t *screen = lv_screen_active();
     lv_obj_remove_style_all(screen);
     lv_obj_add_style(screen, ui_style_screen(), 0);
-    lv_obj_set_flex_flow(screen, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_flow(screen, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(screen, UI_SPACE_LG, 0);
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
-    ui_status_panel_create(screen);
+    s_top_bar = ui_top_bar_create(screen, weather_event_cb, NULL);
 
-    lv_obj_t *content = lv_obj_create(screen);
-    lv_obj_remove_style_all(content);
-    lv_obj_add_style(content, ui_style_transparent(), 0);
-    lv_obj_set_size(content, CONTENT_WIDTH, LV_PCT(100));
-    lv_obj_remove_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    s_content = lv_obj_create(screen);
+    lv_obj_remove_style_all(s_content);
+    lv_obj_add_style(s_content, ui_style_transparent(), 0);
+    lv_obj_set_size(s_content, LV_PCT(100), CONTENT_HEIGHT);
+    lv_obj_remove_flag(s_content, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_grid = lv_obj_create(content);
+    s_grid = lv_obj_create(s_content);
     lv_obj_remove_style_all(s_grid);
     lv_obj_add_style(s_grid, ui_style_transparent(), 0);
     lv_obj_set_size(s_grid, LV_PCT(100), LV_PCT(100));
@@ -79,8 +100,11 @@ void ui_dashboard_create(void)
         ui_tile_card_create(s_grid, s_sections[i].icon, s_sections[i].label,
                             s_sections[i].info, s_sections[i].accent, tile_event_cb,
                             (void *)(uintptr_t)i);
-        s_pages[i] = ui_page_create(content, s_sections[i].label, back_event_cb, NULL);
+        s_pages[i] = ui_page_create(s_content, s_sections[i].label, back_event_cb, NULL);
     }
+
+    s_weather = ui_weather_page_create(screen, weather_back_cb, NULL);
+    lv_obj_add_flag(s_weather, LV_OBJ_FLAG_HIDDEN);
 
     show_grid();
 }

@@ -8,6 +8,8 @@ extern "C" {
 
 lv_obj_t *ui_hourly_strip_create(lv_obj_t *parent);
 
+void ui_hourly_strip_set_day(int day);
+
 #ifdef __cplusplus
 }
 #endif

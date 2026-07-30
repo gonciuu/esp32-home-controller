@@ -44,10 +44,12 @@ lv_obj_t *ui_page_create(lv_obj_t *parent, const char *title, lv_event_cb_t on_b
 
     create_back(page, on_back, user_data);
 
-    lv_obj_t *heading = lv_label_create(page);
-    lv_label_set_text(heading, title);
-    lv_obj_set_style_text_font(heading, UI_FONT_TITLE, 0);
-    lv_obj_set_style_text_color(heading, ui_color(UI_COLOR_TEXT), 0);
+    if (title) {
+        lv_obj_t *heading = lv_label_create(page);
+        lv_label_set_text(heading, title);
+        lv_obj_set_style_text_font(heading, UI_FONT_TITLE, 0);
+        lv_obj_set_style_text_color(heading, ui_color(UI_COLOR_TEXT), 0);
+    }
 
     return page;
 }
