@@ -26,4 +26,19 @@ menu "Home Controller"
         help
             Shown under the temperature. Purely cosmetic.
 
+    config HOME_HA_HOST
+        string "Home Assistant host"
+        default "192.168.1.50:8123"
+        help
+            Host and port of the Home Assistant instance, without a scheme. Reached over
+            plain http on the LAN.
+
+    config HOME_HA_TOKEN
+        string "Home Assistant long-lived access token"
+        default ""
+        help
+            Created under Profile - Security - Long-lived access tokens. It is baked into
+            the firmware image and stored in sdkconfig, so issue it to a dedicated HA user
+            that can be revoked on its own.
+
 endmenu

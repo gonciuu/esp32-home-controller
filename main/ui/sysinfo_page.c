@@ -9,10 +9,13 @@
 #include <string.h>
 
 /* 720 x 400 inside the page padding: back 44 + grid 312 + footer 17 and two 12 px gaps is
- * 397. The grid is 4 x 171 + 3 x 12 = 720 across and 2 x 150 + 12 = 312 down. No page
+ * 397. The grid is 5 x 134 + 4 x 12 = 718 across and 2 x 150 + 12 = 312 down. No page
  * heading - the tile that opens this already says System, and the row would not fit.
- * 171 wide leaves 139 for text, which is what keeps the subtitles terse. */
-#define CARD_W         171
+ * A third row does not fit either, so ten cards is the ceiling: card height would have to
+ * drop to ~97 and there is no room for title + value + bar + subtitle in that.
+ * 134 wide with UI_SPACE_MD padding leaves 110 for text, and the subtitles are cut to fit
+ * it - every one of them is a line that wraps and overflows the card if it grows. */
+#define CARD_W         134
 #define CARD_H         150
 #define GRID_H         (2 * CARD_H + UI_SPACE_MD)
 #define BAR_HEIGHT     8
@@ -29,18 +32,20 @@
 enum {
     CARD_CPU,
     CARD_TEMP,
+    CARD_POWER,
+    CARD_VOLTAGE,
+    CARD_UPTIME,
     CARD_RAM,
     CARD_RAM_MIN,
     CARD_PSRAM,
     CARD_LVGL,
     CARD_WIFI,
-    CARD_UPTIME,
     CARD_COUNT,
 };
 
 static const char *s_titles[CARD_COUNT] = {
-    "CPU LOAD", "TEMPERATURE", "INTERNAL RAM", "RAM LOW-WATER",
-    "PSRAM",    "LVGL HEAP",   "WI-FI",        "UPTIME",
+    "CPU LOAD",     "TEMPERATURE",   "POWER (EST.)", "RAIL VOLTAGE", "UPTIME",
+    "INTERNAL RAM", "RAM LOW-WATER", "PSRAM",        "LVGL HEAP",    "WI-FI",
 };
 
 typedef struct {
@@ -144,7 +149,32 @@ static void render_ram_min(const sysinfo_t *info)
     const int pct = used_pct(info->ram_min_free, info->ram_total);
 
     format_size(info->ram_min_free, value, sizeof(value));
-    set_card(CARD_RAM_MIN, value, "least ever free", pct, level_color(pct));
+    set_card(CARD_RAM_MIN, value, "min free", pct, level_color(pct));
+}
+
+#define POWER_FULL_SCALE_W  3.0f
+#define CURRENT_FULL_SCALE  800.0f
+
+static void render_power(const sysinfo_t *info)
+{
+    char value[TEXT_CAP];
+    char sub[TEXT_CAP];
+
+    snprintf(value, sizeof(value), "%.2f W", info->power_w);
+    snprintf(sub, sizeof(sub), "est. @ %.1f V", info->rail_v);
+    set_card(CARD_POWER, value, sub, (int)(info->power_w * 100.0f / POWER_FULL_SCALE_W),
+             UI_COLOR_SUN);
+}
+
+static void render_voltage(const sysinfo_t *info)
+{
+    char value[TEXT_CAP];
+    char sub[TEXT_CAP];
+
+    snprintf(value, sizeof(value), "%.2f V", info->rail_v);
+    snprintf(sub, sizeof(sub), "est. %.0f mA", info->current_ma);
+    set_card(CARD_VOLTAGE, value, sub, (int)(info->current_ma * 100.0f / CURRENT_FULL_SCALE),
+             UI_COLOR_UP);
 }
 
 static void render_cpu(const sysinfo_t *info)
@@ -158,7 +188,7 @@ static void render_cpu(const sysinfo_t *info)
     }
 
     snprintf(value, sizeof(value), "%d%%", info->cpu_pct);
-    snprintf(sub, sizeof(sub), "cores %d%% / %d%%", info->cpu_core_pct[0], info->cpu_core_pct[1]);
+    snprintf(sub, sizeof(sub), "cores %d/%d%%", info->cpu_core_pct[0], info->cpu_core_pct[1]);
     set_card(CARD_CPU, value, sub, info->cpu_pct, level_color(info->cpu_pct));
 }
 
@@ -175,8 +205,6 @@ static void render_temp(const sysinfo_t *info)
     const uint32_t color = t < 60 ? UI_COLOR_UP : (t < 75 ? UI_COLOR_SUN : UI_COLOR_DOWN);
 
     snprintf(value, sizeof(value), "%.1f\xC2\xB0" "C", info->temp_c);
-    /* The bar spans 20-80 C rather than 0-100: below room temperature is impossible here and
-     * the interesting range is the top third. */
     set_card(CARD_TEMP, value, "SoC internal", (int)((info->temp_c - 20.0f) * 100.0f / 60.0f),
              color);
 }
@@ -192,7 +220,7 @@ static void render_lvgl(void)
     const int pct = used_pct(mon.free_size, mon.total_size);
 
     snprintf(value, sizeof(value), "%d%%", pct);
-    snprintf(sub, sizeof(sub), "%u/%u KB " SEP " %u%%", (unsigned)(mon.free_size / 1024),
+    snprintf(sub, sizeof(sub), "%u/%uKB " SEP " %u%%", (unsigned)(mon.free_size / 1024),
              (unsigned)(mon.total_size / 1024), (unsigned)mon.frag_pct);
     set_card(CARD_LVGL, value, sub, pct, level_color(pct));
 }
@@ -230,7 +258,6 @@ static void render_uptime(const sysinfo_t *info)
     const int secs = total % 60;
 
     char value[TEXT_CAP];
-    char reason[20];
 
     if (days > 0) {
         snprintf(value, sizeof(value), "%dd %dh", days, hours);
@@ -242,11 +269,7 @@ static void render_uptime(const sysinfo_t *info)
         snprintf(value, sizeof(value), "%dm %ds", mins, secs);
     }
 
-    strlcpy(reason, sysinfo_reset_text(), sizeof(reason));
-
-    char sub[TEXT_CAP];
-    snprintf(sub, sizeof(sub), "since %s", reason);
-    set_card(CARD_UPTIME, value, sub, 0, UI_COLOR_TEXT);
+    set_card(CARD_UPTIME, value, sysinfo_reset_text(), 0, UI_COLOR_TEXT);
 }
 
 static void render_tile(const sysinfo_t *info)
@@ -280,6 +303,8 @@ static void render(void)
 
     render_cpu(&info);
     render_temp(&info);
+    render_power(&info);
+    render_voltage(&info);
     render_memory(CARD_RAM, info.ram_free, info.ram_total);
     render_ram_min(&info);
     render_memory(CARD_PSRAM, info.psram_free, info.psram_total);
@@ -318,14 +343,14 @@ static void create_card(lv_obj_t *grid, int index)
     lv_obj_remove_style_all(card);
     lv_obj_add_style(card, ui_style_card(), 0);
     lv_obj_set_size(card, CARD_W, CARD_H);
-    lv_obj_set_style_pad_all(card, UI_SPACE_LG, 0);
+    lv_obj_set_style_pad_all(card, UI_SPACE_MD, 0);
     lv_obj_set_style_pad_row(card, UI_SPACE_SM, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
     ui_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, s_titles[index]);
-    c->value = ui_label(card, UI_FONT_TITLE, UI_COLOR_TEXT, "--");
+    c->value = ui_label(card, UI_FONT_HEADING, UI_COLOR_TEXT, "--");
     c->bar = make_bar(card);
     c->sub = ui_label(card, UI_FONT_CAPTION, UI_COLOR_TEXT_MUTED, "");
 

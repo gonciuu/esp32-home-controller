@@ -1,6 +1,7 @@
 #include "esp_err.h"
 #include "bsp.h"
 #include "dashboard.h"
+#include "ha_lights.h"
 #include "markets.h"
 #include "net_lock.h"
 #include "sysinfo.h"
@@ -20,6 +21,7 @@ void app_main(void)
     time_sync_start();
     weather_start();
     markets_start();
+    ha_lights_start();
 
     if (bsp_display_lock(0)) {
         ui_theme_init();

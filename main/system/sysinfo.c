@@ -13,7 +13,6 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
 #include "wifi_sta.h"
@@ -21,6 +20,12 @@
 static const char *TAG = "sysinfo";
 
 #define CORE_COUNT 2
+
+#define PWR_RAIL_V   5.0f
+#define PWR_BASE_MW  450.0f
+#define PWR_PANEL_MW 1200.0f
+#define PWR_CPU_MW   300.0f
+#define PWR_WIFI_MW  350.0f
 
 static temperature_sensor_handle_t s_tsens;
 
@@ -136,6 +141,22 @@ static void sample_wifi(sysinfo_t *out)
     }
 }
 
+static void sample_power(sysinfo_t *out)
+{
+    float mw = PWR_BASE_MW + PWR_PANEL_MW;
+
+    if (out->cpu_valid) {
+        mw += PWR_CPU_MW * (float)out->cpu_pct / 100.0f;
+    }
+    if (out->wifi_valid) {
+        mw += PWR_WIFI_MW;
+    }
+
+    out->rail_v     = PWR_RAIL_V;
+    out->power_w    = mw / 1000.0f;
+    out->current_ma = mw / PWR_RAIL_V;
+}
+
 void sysinfo_sample(sysinfo_t *out)
 {
     memset(out, 0, sizeof(*out));
@@ -156,6 +177,7 @@ void sysinfo_sample(sysinfo_t *out)
     out->uptime_s = esp_timer_get_time() / 1000000;
 
     sample_wifi(out);
+    sample_power(out);
 }
 
 const char *sysinfo_chip_text(void)

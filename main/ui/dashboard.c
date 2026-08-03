@@ -1,4 +1,5 @@
 #include "dashboard.h"
+#include "lights_page.h"
 #include "markets_page.h"
 #include "page.h"
 #include "sysinfo_page.h"
@@ -15,6 +16,7 @@
 static void weather_event_cb(lv_event_t *e);
 static void markets_event_cb(lv_event_t *e);
 static void sysinfo_event_cb(lv_event_t *e);
+static void lights_event_cb(lv_event_t *e);
 
 typedef struct {
     const char   *icon;
@@ -26,7 +28,7 @@ typedef struct {
 
 static const ui_section_t s_sections[] = {
     { LV_SYMBOL_HOME,     "Home",     "All quiet",   0x4C8DFF, NULL },
-    { LV_SYMBOL_CHARGE,   "Lights",   "3 on",        0xFFB020, NULL },
+    { LV_SYMBOL_CHARGE,   "Lights",   "--",          0xFFB020, lights_event_cb },
     { LV_SYMBOL_TINT,     "Climate",  "--",          0x35C6E8, weather_event_cb },
     { LV_SYMBOL_SD_CARD,  "System",   "--",          0xA46BFF, sysinfo_event_cb },
     { LV_SYMBOL_SETTINGS, "Settings", "Up to date",  0x8A93A3, NULL },
@@ -40,6 +42,7 @@ static lv_obj_t *s_content;
 static lv_obj_t *s_weather;
 static lv_obj_t *s_markets;
 static lv_obj_t *s_sysinfo;
+static lv_obj_t *s_lights;
 static lv_obj_t *s_grid;
 static lv_obj_t *s_pages[UI_SECTION_COUNT];
 
@@ -52,6 +55,7 @@ static void show_grid(void)
     }
     lv_obj_add_flag(s_markets, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_sysinfo, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_lights, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(s_grid, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -114,6 +118,17 @@ static void sysinfo_back_cb(lv_event_t *e)
     hide_overlay(s_sysinfo);
 }
 
+static void lights_event_cb(lv_event_t *e)
+{
+    ui_lights_page_refresh();
+    show_overlay(s_lights);
+}
+
+static void lights_back_cb(lv_event_t *e)
+{
+    hide_overlay(s_lights);
+}
+
 void ui_dashboard_create(void)
 {
     lv_obj_t *screen = lv_screen_active();
@@ -160,6 +175,9 @@ void ui_dashboard_create(void)
         else if (s_sections[i].on_click == sysinfo_event_cb) {
             ui_sysinfo_bind_tile(card);
         }
+        else if (s_sections[i].on_click == lights_event_cb) {
+            ui_lights_bind_tile(card);
+        }
     }
 
     s_weather = ui_weather_page_create(screen, weather_back_cb, NULL);
@@ -167,6 +185,7 @@ void ui_dashboard_create(void)
 
     s_markets = ui_markets_page_create(screen, markets_back_cb, NULL);
     s_sysinfo = ui_sysinfo_page_create(screen, sysinfo_back_cb, NULL);
+    s_lights = ui_lights_page_create(screen, lights_back_cb, NULL);
 
     show_grid();
 }

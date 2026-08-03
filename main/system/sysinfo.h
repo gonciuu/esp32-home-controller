@@ -24,6 +24,10 @@ typedef struct {
 
     int64_t uptime_s;
 
+    float   power_w;
+    float   current_ma;
+    float   rail_v;
+
     bool    wifi_valid;
     int8_t  rssi;
     char    ip[16];
