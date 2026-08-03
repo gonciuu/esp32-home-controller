@@ -17,7 +17,11 @@ idf.py -p COM4 flash monitor
 
 Target is `esp32s3`; the serial port (`COM4`) is set in `.vscode/settings.json`.
 
-`sdkconfig` is generated and gitignored. **Board and project config belongs in `sdkconfig.defaults`.** Because `sdkconfig` already contains an explicit value for most options, adding a line to `sdkconfig.defaults` does *not* retroactively change an existing `sdkconfig` — either edit both, or delete `sdkconfig` and run `idf.py reconfigure`.
+`sdkconfig` is generated and gitignored. **Board and project config belongs in `sdkconfig.defaults`**; secrets and per-installation values (WiFi, HA token, coordinates) belong in `sdkconfig.local`, which is also gitignored and appended to `SDKCONFIG_DEFAULTS` by the root `CMakeLists.txt`. `sdkconfig.local.example` documents its shape.
+
+Both are *defaults* files, and defaults only seed options that `sdkconfig` does not already carry. Editing either one does **not** change an existing `sdkconfig` — they take effect once, on the first build that sees a given option, and never again. Since every setting this project cares about lives in those two files, the fix is to delete `sdkconfig` and rebuild; nothing is lost. `idf.py menuconfig` also works for a quick experiment, but move the value into one of the two files afterwards or the next deletion drops it.
+
+That one-shot behaviour makes compile-time config a poor home for anything tuned repeatedly — prefer a runtime setting stored in NVS.
 
 ## Layout
 
@@ -90,7 +94,7 @@ Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboa
 
 Widgets that show live data own their own `lv_timer` and poll (`weather_get()`, `time_sync_is_valid()`, `wifi_sta_is_connected()`) rather than being pushed to. Every label they write goes through `ui_label_set()` (`ui/label.h`) against a `static char` cache — on a 30 FPS RGB panel an unnecessary `lv_label_set_text` costs a real invalidation, and these widgets tick every 1-5 s against data that changes every 10-15 min. Build labels with `ui_label()` rather than a local `make_label` copy.
 
-`UI_FONT_CLOCK` is the *built-in* `lv_font_montserrat_48` and has no degree sign or Polish glyphs; only the custom `ui_font_14/18/22/28` carry them.
+`UI_FONT_CLOCK` is the *built-in* `lv_font_montserrat_48` and has no degree sign or Polish glyphs; only the custom `ui_font_14/18/22/28` carry them. Those are built over a narrow range too — ASCII, `°` (U+00B0), `•` (U+2022), the Polish letters and a hand-picked FontAwesome set (see the `Opts:` line at the top of `ui/fonts/ui_font_22.c`). Any other codepoint renders as a tofu box, so `·`, `—` and `→` are out; use `•` as the separator.
 
 ## Code style
 

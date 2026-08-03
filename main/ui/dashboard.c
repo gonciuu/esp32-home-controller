@@ -2,6 +2,7 @@
 #include "lights_page.h"
 #include "markets_page.h"
 #include "page.h"
+#include "screensaver.h"
 #include "sysinfo_page.h"
 #include "theme.h"
 #include "tile_card.h"
@@ -188,4 +189,8 @@ void ui_dashboard_create(void)
     s_lights = ui_lights_page_create(screen, lights_back_cb, NULL);
 
     show_grid();
+
+    /* Last child, so it covers the top bar and every page. It is deliberately not part of
+     * s_pages[] — waking must restore whatever was open, not fall back to the grid. */
+    ui_screensaver_create(screen);
 }

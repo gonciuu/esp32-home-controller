@@ -15,6 +15,9 @@ esp_err_t bsp_display_start(void);
 bool bsp_display_lock(uint32_t timeout_ms);
 void bsp_display_unlock(void);
 
+/* The backlight is a single expander bit, so this is on/off — there is no PWM. */
+esp_err_t bsp_display_backlight(bool on);
+
 #ifdef __cplusplus
 }
 #endif

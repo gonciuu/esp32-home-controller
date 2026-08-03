@@ -232,3 +232,8 @@ void bsp_display_unlock(void)
 {
     lvgl_port_unlock();
 }
+
+esp_err_t bsp_display_backlight(bool on)
+{
+    return ch422g_write(CH422G_ADDR_OUTPUT, CH422G_TP_RST_BIT | (on ? CH422G_BL_BIT : 0));
+}

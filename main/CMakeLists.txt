@@ -20,6 +20,7 @@ idf_component_register(SRCS "app_main.c"
                             "ui/markets_page.c"
                             "ui/sysinfo_page.c"
                             "ui/lights_page.c"
+                            "ui/screensaver.c"
                             "ui/page.c"
                             "ui/dashboard.c"
                        PRIV_REQUIRES bsp_waveshare_lcd7 esp_wifi esp_netif esp_timer

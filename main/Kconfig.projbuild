@@ -41,4 +41,16 @@ menu "Home Controller"
             the firmware image and stored in sdkconfig, so issue it to a dedicated HA user
             that can be revoked on its own.
 
+    config HOME_SCREENSAVER_IDLE_S
+        int "Seconds of inactivity before the ambient clock appears"
+        default 60
+        help
+            0 disables the screensaver entirely.
+
+    config HOME_SCREENSAVER_OFF_S
+        int "Seconds of inactivity before the backlight goes out"
+        default 300
+        help
+            Must be larger than the ambient timeout. 0 keeps the backlight on for good.
+
 endmenu

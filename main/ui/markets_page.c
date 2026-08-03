@@ -35,7 +35,7 @@ static char s_tile_cache[TEXT_CAP];
 static int s_change_dir[MARKETS_ASSET_COUNT];
 static int s_tile_dir = -1;
 
-static void format_price(float value, char *out, size_t cap)
+void ui_markets_format_price(float value, char *out, size_t cap)
 {
     if (value < 1000.0f) {
         snprintf(out, cap, "%.2f", value);
@@ -82,7 +82,7 @@ static void render_asset(int i, const market_asset_t *asset)
         return;
     }
 
-    format_price(asset->price, price, sizeof(price));
+    ui_markets_format_price(asset->price, price, sizeof(price));
     snprintf(buf, sizeof(buf), "$%s", price);
     ui_label_set(s_price[i], s_price_cache[i], TEXT_CAP, buf);
 
@@ -93,8 +93,8 @@ static void render_asset(int i, const market_asset_t *asset)
     set_direction(s_change[i], &s_change_dir[i], up);
 
     char low[PRICE_CAP];
-    format_price(asset->low, low, sizeof(low));
-    format_price(asset->high, price, sizeof(price));
+    ui_markets_format_price(asset->low, low, sizeof(low));
+    ui_markets_format_price(asset->high, price, sizeof(price));
     snprintf(buf, sizeof(buf), "24h %s / %s", low, price);
     ui_label_set(s_range[i], s_range_cache[i], TEXT_CAP, buf);
 }
@@ -116,7 +116,7 @@ static void render_tile(const market_asset_t *asset)
     char symbol[8];
     strlcpy(symbol, markets_symbol(0), sizeof(symbol));
 
-    format_price(asset->price, price, sizeof(price));
+    ui_markets_format_price(asset->price, price, sizeof(price));
     const bool up = asset->change_pct >= 0.0f;
     snprintf(buf, sizeof(buf), "%s $%s  %+.1f%%", symbol, price, asset->change_pct);
     ui_label_set(s_tile, s_tile_cache, TEXT_CAP, buf);
