@@ -5,6 +5,10 @@
 build/
 sdkconfig
 sdkconfig.old
+
+# --- Secrets ----------------------------------------------------------------
+# WiFi credentials, HA token, coordinates. sdkconfig.local.example is committed.
+sdkconfig.local
 # Generated inside build/, listed again in case of stray copies
 flasher_args.json
 
