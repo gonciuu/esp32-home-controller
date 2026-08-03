@@ -30,6 +30,8 @@ main/
     time_sync.h/.c    SNTP + TZ
     weather.h/.c      Open-Meteo poller, snapshot behind a mutex
     markets.h/.c      Binance poller (BTC/ETH/SOL), snapshot behind a mutex
+  system/
+    sysinfo.h/.c      local board telemetry: CPU load, SoC temperature, heaps, uptime, link
   ui/
     theme.h/.c        design system — tokens + shared lv_style_t objects
     label.h/.c        ui_label() builder + ui_label_set() cached write
@@ -40,6 +42,7 @@ main/
     weather_page.h/.c fullscreen weather detail: hero, 5 selectable days, hourly
     markets_page.h/.c fullscreen crypto detail: one price row per asset, plus the live
                       subtitle it writes onto the dashboard's Crypto tile
+    sysinfo_page.h/.c fullscreen diagnostics behind the System tile: 4x2 stat cards
     page.h/.c         section page stub (back row + optional heading)
     dashboard.h/.c    the screen shell: top bar over a 3x2 tile grid
 components/
@@ -48,6 +51,8 @@ components/
 ```
 
 New UI `.c` files must be added to `SRCS` in `main/CMakeLists.txt`.
+
+The telemetry directory is `system/`, not `sys/`: `main` is already on the include path, so a `main/sys/` would sit in front of the toolchain's `<sys/...>` headers.
 
 ## Rules that will bite you
 
@@ -71,6 +76,8 @@ New UI `.c` files must be added to `SRCS` in `main/CMakeLists.txt`.
 
 **One HTTPS request at a time.** `weather.c` and `markets.c` each own a task and would otherwise handshake concurrently at boot and again whenever their periods collide. Two mbedTLS sessions plus two cert bundle verifications do not fit, and the failure is *not* a clean allocation error — it surfaces as `esp-x509-crt-bundle: PSA signature verification failed with error 0xffffff73` (that is -141, `PSA_ERROR_INSUFFICIENT_MEMORY`), which reads like a certificate problem. Every `fetch_once()` must sit inside `net_lock_take()` / `net_lock_give()`, and `net_lock_init()` must run in `app_main` before any poller starts. mbedTLS also allocates from PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`) so its 16 KB input buffer is not competing with the LVGL pool for internal SRAM.
 
+**The FreeRTOS idle counter is 32-bit microseconds.** `CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS` is what makes `ulTaskGetIdleRunTimeCounterForCore()` exist, and its `configRUN_TIME_COUNTER_TYPE` wraps every ~71 minutes. `sysinfo.c` computes CPU load from an *unsigned* subtraction of consecutive reads, which is exactly why the wrap is harmless — do not widen those to 64-bit and do not compare the absolute values. For the same reason `sysinfo_sample()` may only ever have one caller: it consumes the interval since the last call, so a second caller would leave both reading near zero. That option also cannot be hand-mirrored into `sdkconfig` the way the rest can; it unlocks sub-options that are absent from a config generated without it, so it needs a real `idf.py reconfigure`.
+
 **Binance quotes its numbers as strings.** `"lastPrice":"118420.01000000"` — `weather.c`'s `find_number()` walks to the `:` and calls `strtof`, which stops dead on the `"`. `markets.c` has its own `find_quoted_number()` that steps over it. Both parsers depend on the same trap: every key string carries its own closing quote, or `"priceChange"` would match `"priceChangePercent"` (and `"weather_code"` would match `"weather_code_units"`).
 
 ## UI conventions
@@ -79,7 +86,7 @@ Everything visual goes through `main/ui/theme.h`. Do not hard-code colours, spac
 
 Icons are FontAwesome glyphs baked into the Montserrat fonts — `LV_SYMBOL_*` string macros from `lv_symbol_def.h`, concatenated into label text. There are no image assets and no image decoders enabled. Anything the glyph set does not cover gets assembled from nested `lv_obj` rectangles and circles instead: see `weather_icon.c` and the coin in `markets_page.c`. A tile card built with a NULL icon leaves its icon tile empty for exactly this.
 
-Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. A section with a non-NULL `on_click` brings its own page and gets no stub — that is how Climate and Crypto escape the table, and it is why `show_grid()` has to skip the `NULL` entries in `s_pages[]`. Both also bind their tile's subtitle to live data via `ui_weather_page_bind_tile()` / `ui_markets_bind_tile()`; those run inside the card loop, *before* the pages exist, so neither may render from the bind call. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt. The weather and markets pages are siblings of the top bar so they can cover it; both need the full 440 px for their type sizes.
+Dashboard sections are declared in one table (`s_sections[]` in `main/ui/dashboard.c`); adding a section is one line plus the pages/cards loop picking it up automatically. A section with a non-NULL `on_click` brings its own page and gets no stub — that is how Climate, Crypto and System escape the table, and it is why `show_grid()` has to skip the `NULL` entries in `s_pages[]`. All three also bind their tile's subtitle to live data via `ui_weather_page_bind_tile()` / `ui_markets_bind_tile()` / `ui_sysinfo_bind_tile()`; those run inside the card loop, *before* the pages exist, so none of them may render from the bind call. Section pages are all created up front and swapped with `LV_OBJ_FLAG_HIDDEN` rather than destroyed and rebuilt. The weather, markets and system pages are siblings of the top bar so they can cover it; all three need the full 440 px for their type sizes, and every one of them must be hidden in `show_grid()` or backing out of a stub page leaves it stacked behind the grid.
 
 Widgets that show live data own their own `lv_timer` and poll (`weather_get()`, `time_sync_is_valid()`, `wifi_sta_is_connected()`) rather than being pushed to. Every label they write goes through `ui_label_set()` (`ui/label.h`) against a `static char` cache — on a 30 FPS RGB panel an unnecessary `lv_label_set_text` costs a real invalidation, and these widgets tick every 1-5 s against data that changes every 10-15 min. Build labels with `ui_label()` rather than a local `make_label` copy.
 

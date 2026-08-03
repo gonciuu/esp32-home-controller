@@ -24,6 +24,12 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 # internal SRAM, so raising it costs internal RAM, not PSRAM.
 CONFIG_LV_MEM_SIZE_KILOBYTES=128
 
+# Per-task idle-time counters, which is how the system info page measures CPU load. Selects
+# FREERTOS_USE_TRACE_FACILITY and a counter type/clock choice whose symbols are absent from an
+# sdkconfig generated without it, so this one cannot be hand-mirrored - delete sdkconfig and
+# reconfigure. Costs one esp_timer read per context switch.
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+
 # UI type scale: 14 (default) / 18 body / 22 heading / 28 page title / 48 clock
 CONFIG_LV_FONT_MONTSERRAT_18=y
 CONFIG_LV_FONT_MONTSERRAT_22=y
